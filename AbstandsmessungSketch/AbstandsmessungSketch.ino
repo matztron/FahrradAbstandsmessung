@@ -16,15 +16,8 @@ RTC_DS1307 RTC;
 #define echoPin 2 // attach pin D2 Arduino to pin Echo of HC-SR04
 #define trigPin 3 // attach pin D3 Arduino to pin Trig of HC-SR04
 
-//int distance; // variable for the distance measurement
-
-// Zyklischer Puffer für die gemessenen Abstandswerte
-//#define DISTANCE_BUF_SIZE 10
-//int distanceBuf[DISTANCE_BUF_SIZE];
-//int index = 0;
-
-#define NUM_MEASSUREMENTS 5
-int sumDistances; // variable for the duration of sound wave travel
+#define NUM_MEASSUREMENTS 3 // Je mehr Messungen man macht desto genauer aber auch desto träger wird das System und schnelle Objekte (zB. Autos) werden ggf. nicht erkannt
+int sumDistances; // Durschnittswert der gemessenen Distanzen ermittelt durch Ultraschall-Messung
 
 File myFile;
  
@@ -53,7 +46,8 @@ void setup ()
   // Konfiguration der Ultraschall-Sensor Pins
   pinMode(trigPin, OUTPUT); // Sets the trigPin as an OUTPUT
   pinMode(echoPin, INPUT);
- 
+
+ // Das braucht man nur um initial die RTC zu setzen
   /*if (! RTC.isrunning()) 
   {
     Serial.println("RTC is NOT running!");
@@ -62,17 +56,10 @@ void setup ()
   }*/
  
 }
-
-// Idk if this should be implemented, for now file stays open
-/*void shutoff() 
-{
-  myFile.close();
-  Serial.println("done.");
-}*/
  
 void loop () 
 {
-  // Make some measurements
+  // Führe Ultraschall-Messungen durch
   for (int i = 0; i < NUM_MEASSUREMENTS; i++) 
   {
     // --- MESSE DEN ABSTAND ---
@@ -89,14 +76,16 @@ void loop ()
     sumDistances += duration * 0.034 / 2; // Speed of sound wave divided by 2 (go and back)
   }
 
-  // Take the average of the measurements
+  // Berechne den Durschnittswert aus der Messreihe
   float avg = float(sumDistances) / float(NUM_MEASSUREMENTS);
+  // Fürs Debugging:
+  Serial.println("Abstand:" + String(avg));
 
-  // Check if avg is between some boundries indicating that a car is passing the sensor
+  // Wenn der Durchschnittswert weniger ist als eine gewisser Schwellwert berichte das Vorkommniss (zB überholendes Auto) und schreibe es auf die SD-Karte
   if (avg < 170.0f) // [cm]
   {
-    // open the file. note that only one file can be open at a time,
-    // so you have to close this one before opening another.
+    // Öffne die Datei. Beachte: Es kann immer nur eine Datei gleichzeitig geöffnet sein.
+    // Weswegen diese Datei geschlossen werden muss bevor man die nächste öffnet
     myFile = SD.open("msmt.txt", FILE_WRITE);
 
     if (myFile) 
@@ -119,18 +108,18 @@ void loop ()
       myFile.print(avg);
       myFile.print("\n");
 
-      //Close file
+      // Schließe die Datei
       myFile.close();
     } 
     else 
     {
-      // if the file didn't open, print an error:
+      // Die Datei lies sich nicht öffnen - Gebe einen Fehler aus
       Serial.println("error opening test.txt");
     }
     
   }
   
-  // Reset global stuff:
+  // Setze den durschnittlichen Distanz-Wert zurück um für die nächte Messung vorbereitet zu sein:
   sumDistances = 0;
 
   
